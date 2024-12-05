@@ -5,8 +5,7 @@ from torch.nn.parameter import Parameter
 from torch.nn.modules.module import Module
 
 
-###################################ZINB###################################
-###################################ZINB###################################
+
 ###################################ZINB###################################
 
 class ZINBLoss(nn.Module):
@@ -64,51 +63,9 @@ class DispAct(nn.Module):
 
 
 ###################################ZINB###################################
-###################################ZINB###################################
-###################################ZINB###################################
 
 
-class Discriminator(nn.Module):
-    def __init__(self, n_h):
-        super(Discriminator, self).__init__()
-        self.f_k = nn.Bilinear(n_h, n_h, 1)
 
-        for m in self.modules():
-            self.weights_init(m)
-
-    def weights_init(self, m):
-        if isinstance(m, nn.Bilinear):
-            torch.nn.init.xavier_uniform_(m.weight.data)
-            if m.bias is not None:
-                m.bias.data.fill_(0.0)
-
-    def forward(self, c, h_pl, h_mi, s_bias1=None, s_bias2=None):
-        c_x = c.expand_as(h_pl)
-
-        sc_1 = self.f_k(h_pl, c_x)
-        sc_2 = self.f_k(h_mi, c_x)
-
-        if s_bias1 is not None:
-            sc_1 += s_bias1
-        if s_bias2 is not None:
-            sc_2 += s_bias2
-
-        logits = torch.cat((sc_1, sc_2), 1)
-
-        return logits
-
-
-class AvgReadout(nn.Module):
-    def __init__(self):
-        super(AvgReadout, self).__init__()
-
-    def forward(self, emb, mask=None):
-        vsum = torch.mm(mask, emb)
-        row_sum = torch.sum(mask, 1)
-        row_sum = row_sum.expand((vsum.shape[1], row_sum.shape[0])).T
-        global_emb = vsum / row_sum
-
-        return F.normalize(global_emb, p=2, dim=1)
 
 
 class Encoder(Module):
@@ -124,12 +81,7 @@ class Encoder(Module):
         self.weight2 = Parameter(torch.FloatTensor(self.out_features, self.in_features))
         # self.weight3 = Parameter(torch.FloatTensor(self.out_features, self.out_features))
         self.reset_parameters()
-
-        self.disc = Discriminator(self.out_features)
-
         self.sigm = nn.Sigmoid()
-        self.read = AvgReadout()
-
         ##############################################################
         ##############################################################
         self._dec_mean = nn.Sequential(nn.Linear(self.in_features, self.in_features), MeanAct())
@@ -176,25 +128,9 @@ class Encoder(Module):
         z_a = torch.mm(adj, z_a)
         emb_a = self.act(z_a)
 
-        # r = F.dropout(emb, self.dropout, self.training)
-        # r = torch.mm(r, self.weight3)
-        # r = torch.mm(adj, r)
-        #
-        # r_a = F.dropout(emb_a, self.dropout, self.training)
-        # r_a = torch.mm(r_a, self.weight3)
-        # r_a = torch.mm(adj, r_a)
-
         dec = self.decoder(emb)
         dec_a = self.decoder(emb_a)
 
-        # g = self.read(emb, self.graph_neigh)
-        # g = self.sigm(g)
-        #
-        # g_a = self.read(emb_a, self.graph_neigh)
-        # g_a = self.sigm(g_a)
-        #
-        # ret = self.disc(g, emb, emb_a)
-        # ret_a = self.disc(g_a, emb_a, emb)
 
         return hiden_emb, h, zinb_loss, _mean, _disp, _pi, dec, dec_a
 
@@ -238,10 +174,7 @@ class Encoder_sparse(Module):
         self.weight2 = Parameter(torch.FloatTensor(self.out_features, self.in_features))
         self.reset_parameters()
 
-        self.disc = Discriminator(self.out_features)
-
         self.sigm = nn.Sigmoid()
-        self.read = AvgReadout()
         self.decoder = nn.Sequential(
             # nn.BatchNorm1d(self.out_features),
             nn.Dropout(0.3),
@@ -292,14 +225,6 @@ class Encoder_sparse(Module):
         dec = self.decoder(emb)
         dec_a = self.decoder(emb_a)
 
-        # g = self.read(emb, self.graph_neigh)
-        # g = self.sigm(g)
-        #
-        # g_a = self.read(emb_a, self.graph_neigh)
-        # g_a = self.sigm(g_a)
-        #
-        # ret = self.disc(g, emb, emb_a)
-        # ret_a = self.disc(g_a, emb_a, emb)
 
         return hiden_emb, h, zinb_loss, _mean, _disp, _pi, dec, dec_a
 
@@ -324,79 +249,5 @@ class Encoder_sparse(Module):
         ret = (l1 + l2) * 0.5
         ret = ret.mean()
         return ret
-
-
-class Encoder_sc(torch.nn.Module):
-    def __init__(self, dim_input, dim_output, dropout=0.0, act=F.relu):
-        super(Encoder_sc, self).__init__()
-        self.dim_input = dim_input
-        self.dim1 = 256
-        self.dim2 = 64
-        self.dim3 = 32
-        self.act = act
-        self.dropout = dropout
-
-        # self.linear1 = torch.nn.Linear(self.dim_input, self.dim_output)
-        # self.linear2 = torch.nn.Linear(self.dim_output, self.dim_input)
-
-        # self.weight1_en = Parameter(torch.FloatTensor(self.dim_input, self.dim_output))
-        # self.weight1_de = Parameter(torch.FloatTensor(self.dim_output, self.dim_input))
-
-        self.weight1_en = Parameter(torch.FloatTensor(self.dim_input, self.dim1))
-        self.weight2_en = Parameter(torch.FloatTensor(self.dim1, self.dim2))
-        self.weight3_en = Parameter(torch.FloatTensor(self.dim2, self.dim3))
-
-        self.weight1_de = Parameter(torch.FloatTensor(self.dim3, self.dim2))
-        self.weight2_de = Parameter(torch.FloatTensor(self.dim2, self.dim1))
-        self.weight3_de = Parameter(torch.FloatTensor(self.dim1, self.dim_input))
-
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        torch.nn.init.xavier_uniform_(self.weight1_en)
-        torch.nn.init.xavier_uniform_(self.weight1_de)
-
-        torch.nn.init.xavier_uniform_(self.weight2_en)
-        torch.nn.init.xavier_uniform_(self.weight2_de)
-
-        torch.nn.init.xavier_uniform_(self.weight3_en)
-        torch.nn.init.xavier_uniform_(self.weight3_de)
-
-    def forward(self, x):
-        x = F.dropout(x, self.dropout, self.training)
-
-        # x = self.linear1(x)
-        # x = self.linear2(x)
-
-        # x = torch.mm(x, self.weight1_en)
-        # x = torch.mm(x, self.weight1_de)
-
-        x = torch.mm(x, self.weight1_en)
-        x = torch.mm(x, self.weight2_en)
-        x = torch.mm(x, self.weight3_en)
-
-        x = torch.mm(x, self.weight1_de)
-        x = torch.mm(x, self.weight2_de)
-        x = torch.mm(x, self.weight3_de)
-
-        return x
-
-
-class Encoder_map(torch.nn.Module):
-    def __init__(self, n_cell, n_spot):
-        super(Encoder_map, self).__init__()
-        self.n_cell = n_cell
-        self.n_spot = n_spot
-
-        self.M = Parameter(torch.FloatTensor(self.n_cell, self.n_spot))
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        torch.nn.init.xavier_uniform_(self.M)
-
-    def forward(self):
-        x = self.M
-
-        return x
 
 

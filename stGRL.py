@@ -6,7 +6,7 @@ import random
 import numpy as np
 import sys
 
-sys.path.append('/home/luxin1/demo')
+sys.path.append('your path')
 from model import Encoder, Encoder_sparse, Encoder_map, Encoder_sc, ZINBLoss, GaussianNoise, MeanAct, DispAct
 from tqdm import tqdm
 from torch import nn
@@ -66,7 +66,6 @@ class stGRL():
 
         self.features = torch.FloatTensor(self.adata.obsm['feat'].copy()).to(self.device)
         self.features_a = torch.FloatTensor(self.adata.obsm['feat_a'].copy()).to(self.device)
-        # self.label_CSL = torch.FloatTensor(self.adata.obsm['label_CSL']).to(self.device)
         self.adj = self.adata.obsm['adj']
         self.graph_neigh = torch.FloatTensor(self.adata.obsm['graph_neigh'].copy() + np.eye(self.adj.shape[0])).to(
             self.device)
@@ -135,29 +134,11 @@ class stGRL():
 
         with torch.no_grad():
             self.model.eval()
-            # self.adata = self.adata[:, self.adata.var['highly_variable']]
-            # ReX = self.emb.to('cpu').detach().numpy()
-            # ReX[ReX < 0] = 0
-            # self.adata.layers['stGRL'] = ReX
             self.adata.obsm['rec'] = self.emb.detach().cpu().numpy()
             self.emb = F.normalize(self.emb, p=2, dim=1).detach().cpu().numpy()
             self.adata.obsm['emb'] = self.emb
             return self.adata
-            # if self.save_reconstruction:
-            #     self.adata = self.adata[:, self.adata.var['highly_variable']]
-            #     ReX = self.emb.to('cpu').detach().numpy()
-            #     ReX[ReX < 0] = 0
-            #     self.adata.layers['stGRL'] = ReX
-            #     return self.adata
-            # else:
-            #     self.adata.obsm['rec'] = self.emb.detach().cpu().numpy()
-            #     self.emb = F.normalize(self.emb, p=2, dim=1).detach().cpu().numpy()
-            #     self.adata.obsm['emb'] = self.emb
-            #     return self.adata
-
-            # self.adata = self.adata[:, self.adata.var['highly_variable']]
-            # ReX = self.emb
-            # ReX[ReX < 0] = 0
+    
 
 
 
